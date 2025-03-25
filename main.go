@@ -1,4 +1,4 @@
-package main
+package medfuturalib
 
 import (
 	"C"
@@ -59,5 +59,3 @@ func RequestData(coduser *C.char) *C.char {
 
 	return C.CString(resp.Data)
 }
-
-func main() {}

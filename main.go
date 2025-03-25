@@ -10,46 +10,90 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func init() {
-    err := godotenv.Load()
-    if err != nil {
-        panic("Erro ao carregar o arquivo .env")
-    }
+type Response struct {
+	Status  bool        `json:"status"`
+	Message string      `json:"message"`
+	Data    Funcionario `json:"data"`
 }
 
-func RequestData(coduser string) (string, error) {
+type Modulo struct {
+	CodModulo int    `json:"codModulo"`
+	Descricao string `json:"descricao"`
+	Consultar bool   `json:"consultar"`
+	Gravar    bool   `json:"gravar"`
+	Excluir   bool   `json:"excluir"`
+}
 
-	req, err := http.NewRequest("GET", os.Getenv("LINK") + coduser, nil)
+type Funcionario struct {
+	Id         int       `json:"id"`
+	Cargo      string    `json:"cargo"`
+	Nome       string    `json:"nome"`
+	Email      string    `json:"email"`
+	Permissoes *[]Modulo `json:"permissoes"`
+}
+
+func init() {
+	err := godotenv.Load()
 	if err != nil {
-		return "", errors.New("erro ao criar requisição: " + err.Error())
+		panic("Erro ao carregar o arquivo .env")
+	}
+}
+
+func GetPermissoes(coduser string) (*Funcionario, error) {
+
+	req, err := http.NewRequest("GET", os.Getenv("LINK")+coduser, nil)
+	if err != nil {
+		return nil, errors.New("erro ao criar requisição: " + err.Error())
 	}
 
 	req.Header.Set("Authorization", os.Getenv("JWT"))
 
+	funcionario, err := RequestResponse(req)
+	if err != nil {
+		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
+	}
+
+	return funcionario, nil
+}
+
+func GetModulo(coduser string, codmodulo string) (*Funcionario, error) {
+
+	req, err := http.NewRequest("GET", os.Getenv("LINK")+coduser+"?modulo="+codmodulo, nil)
+	if err != nil {
+		return nil, errors.New("erro ao criar requisição: " + err.Error())
+	}
+
+	req.Header.Set("Authorization", os.Getenv("JWT"))
+
+	funcionario, err := RequestResponse(req)
+	if err != nil {
+		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
+	}
+
+	return funcionario, nil
+}
+
+func RequestResponse(req *http.Request) (*Funcionario, error) {
+
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		return "", errors.New("erro ao fazer a requisição: " + err.Error())
+		return nil, errors.New("erro ao fazer a requisição: " + err.Error())
 	}
 	defer response.Body.Close()
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
-		return "", errors.New("erro ao ler Json: " + err.Error())
+		return nil, errors.New("erro ao ler Json: " + err.Error())
 	}
 
 	if response.StatusCode != 200 {
-		return "", errors.New("erro ao acessar a API")
-	}
-
-	type Response struct {
-		Status  bool   `json:"status"`
-		Message string `json:"message"`
-		Data    string `json:"data"`
+		return nil, errors.New("erro ao acessar a API")
 	}
 
 	var resp Response
 
 	err = json.Unmarshal(data, &resp)
-	return resp.Data, err
+
+	return &resp.Data, err
 }

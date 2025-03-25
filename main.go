@@ -1,9 +1,8 @@
 package main
 
 import (
-	"C"
-
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -18,13 +17,11 @@ func init() {
     }
 }
 
-//export RequestData
-func RequestData(coduser *C.char) *C.char {
-	goCoduser := C.GoString(coduser)
+func RequestData(coduser string) (string, error) {
 
-	req, err := http.NewRequest("GET", os.Getenv("LINK") + goCoduser, nil)
+	req, err := http.NewRequest("GET", os.Getenv("LINK") + coduser, nil)
 	if err != nil {
-		return C.CString("Erro ao criar requisição: " + err.Error())
+		return "", errors.New("erro ao criar requisição: " + err.Error())
 	}
 
 	req.Header.Set("Authorization", os.Getenv("JWT"))
@@ -32,17 +29,17 @@ func RequestData(coduser *C.char) *C.char {
 	client := &http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		return C.CString("Erro ao fazer requisição: " + err.Error())
+		return "", errors.New("erro ao fazer a requisição: " + err.Error())
 	}
 	defer response.Body.Close()
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
-		return C.CString("Erro ao ler resposta: " + err.Error())
+		return "", errors.New("erro ao ler Json: " + err.Error())
 	}
 
 	if response.StatusCode != 200 {
-		return C.CString("Erro ao acessar a API: " + string(data))
+		return "", errors.New("erro ao acessar a API")
 	}
 
 	type Response struct {
@@ -52,12 +49,7 @@ func RequestData(coduser *C.char) *C.char {
 	}
 
 	var resp Response
+
 	err = json.Unmarshal(data, &resp)
-	if err != nil {
-		return C.CString("Erro ao decodificar JSON: " + err.Error())
-	}
-
-	return C.CString(resp.Data)
+	return resp.Data, err
 }
-
-func main() {}

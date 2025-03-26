@@ -48,12 +48,7 @@ func GetPermissoes(coduser string) (*Funcionario, error) {
 
 	req.Header.Set("Authorization", os.Getenv("JWT"))
 
-	funcionario, err := RequestResponse(req)
-	if err != nil {
-		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
-	}
-
-	return funcionario, nil
+	return RequestResponse(req)
 }
 
 func GetModulo(coduser string, codmodulo string) (*Funcionario, error) {
@@ -65,12 +60,7 @@ func GetModulo(coduser string, codmodulo string) (*Funcionario, error) {
 
 	req.Header.Set("Authorization", os.Getenv("JWT"))
 
-	funcionario, err := RequestResponse(req)
-	if err != nil {
-		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
-	}
-
-	return funcionario, nil
+	return RequestResponse(req)
 }
 
 func RequestResponse(req *http.Request) (*Funcionario, error) {
@@ -94,6 +84,9 @@ func RequestResponse(req *http.Request) (*Funcionario, error) {
 	var resp Response
 
 	err = json.Unmarshal(data, &resp)
+	if err != nil {
+		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
+	}
 
-	return &resp.Data, err
+	return &resp.Data, nil
 }

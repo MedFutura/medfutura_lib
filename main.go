@@ -51,7 +51,7 @@ func GetPermissoes(coduser string) (*Funcionario, error) {
 	return RequestResponse(req)
 }
 
-func GetModulo(coduser string, codmodulo string) (*Funcionario, error) {
+func GetPermissao(coduser string, codmodulo string) (*Funcionario, error) {
 
 	req, err := http.NewRequest("GET", os.Getenv("LINK")+coduser+"?modulo="+codmodulo, nil)
 	if err != nil {

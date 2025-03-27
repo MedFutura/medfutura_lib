@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 
+	_ "github.com/denisenkom/go-mssqldb"
+	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
 
@@ -19,10 +22,10 @@ type Response struct {
 	Data    any    `json:"data"`
 }
 
-type JWTResponse struct{
-	Username	string `json:"username"`
-	Password	string `json:"password"`
-	Token 		string `json:"token"`
+type JWTResponse struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Token    string `json:"token"`
 }
 
 type Modulo struct {
@@ -55,19 +58,19 @@ func GetPermissoes(coduser int) (*Funcionario, error) {
 		return nil, errors.New("erro ao criar requisição: " + err.Error())
 	}
 
-	jwt, err := GetJWT()
+	jwt, err := getJWT()
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Authorization", jwt)
 
-	data, err := RequestResponse(req)
-	if err != nil{
+	data, err := requestResponse(req)
+	if err != nil {
 		return nil, err
 	}
 
-	return ToFuncionario(data)
+	return toFuncionario(data)
 }
 
 func GetPermissao(coduser int, codmodulo int) (*Funcionario, error) {
@@ -77,23 +80,49 @@ func GetPermissao(coduser int, codmodulo int) (*Funcionario, error) {
 		return nil, errors.New("erro ao criar requisição: " + err.Error())
 	}
 
-	jwt, err := GetJWT()
+	jwt, err := getJWT()
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Authorization", jwt)
 
-	data, err := RequestResponse(req)
+	data, err := requestResponse(req)
 	if err != nil {
 		return nil, err
 	}
 
-	return ToFuncionario(data)
+	return toFuncionario(data)
 
 }
 
-func GetJWT() (string, error) {
+func Conector(servidor int, banco string) (*sqlx.DB, error) {
+
+	var serverKey string = fmt.Sprintf("ADDR_SERVER_%d", servidor)
+	var portKey string = fmt.Sprintf("PORT_SERVER_%d", servidor)
+	var userKey string = fmt.Sprintf("SERVER_USER_%d", servidor)
+	var passwrdKey string = fmt.Sprintf("SERVER_PSSW_%d", servidor)
+	var dbKey string = fmt.Sprintf("DB_%s_%d", banco, servidor)
+
+	var err error
+	var server string = os.Getenv(serverKey)
+	var port string = os.Getenv(portKey)
+	var user string = os.Getenv(userKey)
+	var password string = os.Getenv(passwrdKey)
+	var database string = os.Getenv(dbKey)
+	var db *sqlx.DB
+
+	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%s;database=%s", server, user, password, port, database)
+	db, err = sqlx.Open("mssql", connString)
+	if err != nil {
+		log.Printf("Erro na conexao com db: %s", err)
+		return db, err
+	}
+
+	return db, nil
+}
+
+func getJWT() (string, error) {
 	body := map[string]string{
 		"username": os.Getenv("USER_SIAC"),
 		"password": os.Getenv("SENHA_SIAC"),
@@ -111,12 +140,12 @@ func GetJWT() (string, error) {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	data, err := RequestResponse(req)
+	data, err := requestResponse(req)
 	if err != nil {
 		return "", err
 	}
 
-	resp, err := ToJWTResponse(data)
+	resp, err := toJWTResponse(data)
 	if err != nil {
 		return "", err
 	}
@@ -124,7 +153,16 @@ func GetJWT() (string, error) {
 	return "Bearer " + resp.Token, nil
 }
 
-func RequestResponse(req *http.Request) (any, error) {
+func filter[T any](data []T, test func(T) bool) (ret []T) {
+	for _, s := range data {
+		if test(s) {
+			ret = append(ret, s)
+		}
+	}
+	return
+}
+
+func requestResponse(req *http.Request) (any, error) {
 
 	client := &http.Client{}
 	response, err := client.Do(req)
@@ -152,7 +190,7 @@ func RequestResponse(req *http.Request) (any, error) {
 	return resp.Data, nil
 }
 
-func ToFuncionario(data any) (*Funcionario, error) {
+func toFuncionario(data any) (*Funcionario, error) {
 
 	dataJson, err := json.Marshal(data)
 	if err != nil {
@@ -169,7 +207,7 @@ func ToFuncionario(data any) (*Funcionario, error) {
 	return &funcionario, nil
 }
 
-func ToJWTResponse(data any) (*JWTResponse, error) {
+func toJWTResponse(data any) (*JWTResponse, error) {
 
 	dataJson, err := json.Marshal(data)
 	if err != nil {
@@ -187,6 +225,13 @@ func ToJWTResponse(data any) (*JWTResponse, error) {
 }
 
 func main() {
+
+	var conn, err = Conector(15, "FUTURA")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	conn.Close()
 
 	fmt.Println(GetPermissao(327, 46))
 

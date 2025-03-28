@@ -8,28 +8,24 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/jmoiron/sqlx"
-	"github.com/joho/godotenv"
 )
 
-
-
 type Response struct {
-	Status  bool   `json:"status"`
-	Message string `json:"message"`
-	Data    any    `json:"data"`
+	Status  bool        `json:"status"`
+	Message string      `json:"message"`
+	Data    Funcionario `json:"data"`
 }
 
 type JWTResponse struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Token    string `json:"token"`
+	Status  bool   `json:"status"`
+	Message string `json:"message"`
+	Data    string `json:"data"`
 }
 
 type Modulo struct {
@@ -48,100 +44,94 @@ type Funcionario struct {
 	Permissoes *[]Modulo `json:"permissoes"`
 }
 
-type Client struct{
-	Url 		string 
-	HttpClient 	*http.Client
-	Headers 	map[string]string
-}
+// Requests é uma função que faz uma requisição HTTP para a url especificada
+// com o método especificado (GET, POST, PUT, DELETE) e retorna o corpo da resposta
+// como um ponteiro para um slice de bytes. Ela aceita parâmetros opcionais
+// parametros: metodo, url, resp, param (map[string]string), data (interface{}),
+// headers (map[string]string)).
+func Requests(method string, url string, resp interface{}, args ...interface{}) error {
+	var params map[string]string
+	var data any
+	var headers map[string]string
+	var payload *bytes.Buffer
+	payload = bytes.NewBuffer(nil)
 
-func init() {
-	err := godotenv.Load()
+	// ptr, ok := resp.(*interface{})
+	// if !ok {
+	// 	return fmt.Errorf("out deve ser um ponteiro para interface")
+	// }
+
+	// // Verifica se o ponteiro dentro da interface é válido
+	// if *ptr == nil {
+	// 	return fmt.Errorf("out é um ponteiro nulo")
+	// }
+
+	if len(args) > 0 {
+		if len(args) > 0 {
+			if args[0] != nil {
+				params = args[0].(map[string]string)
+			}
+		}
+		if len(args) > 1 {
+			data = args[1]
+		}
+		if len(args) > 2 {
+			if args[2] != nil {
+				headers = args[2].(map[string]string)
+			}
+		}
+	}
+
+	if data != nil {
+		payloadBuffer, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		payload = bytes.NewBuffer(payloadBuffer)
+	}
+
+	if params != nil {
+		url += buildQuery(params)
+	}
+
+	req, err := http.NewRequest(method, url, payload)
 	if err != nil {
-		panic("Erro ao carregar o arquivo .env")
+		return err
 	}
-}
 
-func NewHTTPClient(url string, headers map[string]string) *Client{
-	return &Client{
-		Url: url,
-		HttpClient: &http.Client{},
-		Headers: headers,
+	for header := range headers {
+		req.Header.Add(header, headers[header])
 	}
-}
 
-func (c *Client) Get(endpoint string, queryParams map[string]string) ([]byte, error){
-	
-
-	var fullURL string = c.Url + endpoint
-
-	fullURL += buildQuery(queryParams)
-
-	req, err := http.NewRequest("GET", fullURL , nil)
+	client := &http.Client{}
+	response, err := client.Do(req)
 	if err != nil {
-		return nil, errors.New("erro ao criar a requisicao: " + err.Error())
+		return err
 	}
+	defer response.Body.Close()
 
-	for key, value := range c.Headers {
-		req.Header.Set(key, value)
-	}
-
-	return requestResponse(req)
-}
-
-func (c *Client) Post(endpoint string, queryParams map[string]string, body map[string]string) ([]byte, error){
-	
-	var fullURL string = c.Url + endpoint
-
-	fullURL += buildQuery(queryParams)
-
-	reader, err := verifyFormat(c.Headers["Content-Type"], body)
-	if err != nil{
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", fullURL , reader)
+	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, errors.New("erro ao criar a requisicao: " + err.Error())
+		return err
 	}
 
-	for key, value := range c.Headers {
-		req.Header.Set(key, value)
+	if response.StatusCode != 200 {
+		return errors.New(string(body))
 	}
 
-	return requestResponse(req)
-}
-
-func GetPermissoes(coduser int) (*Funcionario, error) {
-
-	jwt, err := getJWT()
+	err = json.Unmarshal(body, resp)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	headers := map[string]string{
-		"Authorization": jwt,
-	}
-
-	client := NewHTTPClient(os.Getenv("LINK"), headers)
-
-	data, err := client.Get("/auth/" + strconv.Itoa(coduser), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var resp Response
-
-	err = json.Unmarshal(data, &resp)
-	if err != nil {
-		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
-	}
-
-	return toFuncionario(resp.Data)
+	return nil
 }
 
 func GetPermissao(coduser int, codmodulo int) (*Funcionario, error) {
+	var err error
+	var jwt string
 
-	jwt, err := getJWT()
+	jwt, err = getJWT()
 	if err != nil {
 		return nil, err
 	}
@@ -154,22 +144,35 @@ func GetPermissao(coduser int, codmodulo int) (*Funcionario, error) {
 		"modulo": strconv.Itoa(codmodulo),
 	}
 
-	client := NewHTTPClient(os.Getenv("LINK"), headers)
-
-	data, err := client.Get("/auth/" + strconv.Itoa(coduser), params)
+	var resp Response
+	err = Requests("GET", os.Getenv("AUTH_LINK")+"/auth/"+strconv.Itoa(coduser), &resp, params, nil, headers)
 	if err != nil {
 		return nil, err
-	} 
-
-	var resp Response
-
-	err = json.Unmarshal(data, &resp)
-	if err != nil {
-		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
 	}
 
-	return toFuncionario(resp.Data)
+	return &resp.Data, err
 
+}
+
+func GetPermissoes(coduser int) (*Funcionario, error) {
+	var err error
+	var resp Response
+
+	jwt, err := getJWT()
+	if err != nil {
+		return nil, err
+	}
+
+	headers := map[string]string{
+		"Authorization": jwt,
+	}
+
+	err = Requests("GET", os.Getenv("AUTH_LINK")+"/auth/"+strconv.Itoa(coduser), &resp, nil, nil, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	return &resp.Data, err
 }
 
 func Conector(servidor int, banco string) (*sqlx.DB, error) {
@@ -209,32 +212,6 @@ func Filter[T any](data []T, test func(T) bool) (ret []T) {
 
 //funcoes privadas
 
-func verifyFormat(contentType string, body map[string]string) (io.Reader, error){
-
-	if body == nil{
-		return nil, nil
-	}
-
-	switch contentType{
-		case "application/json":
-			jsonData, err := json.Marshal(body)
-			if err != nil {
-				return nil, errors.New("erro ao decodificar jsoon: " + err.Error())
-			}
-			return bytes.NewBufferString(string(jsonData)), nil
-		
-		case "application/x-www-form-urlencoded":
-			formData := url.Values{}
-			for key, value := range body {
-				formData.Set(key, value)
-			}
-			return strings.NewReader(formData.Encode()), nil
-
-		default:
-			return nil, errors.New("erro: content type nao suportado")
-	}
-}
-
 func buildQuery(queryParams map[string]string) string {
 	if queryParams == nil {
 		return ""
@@ -249,95 +226,40 @@ func buildQuery(queryParams map[string]string) string {
 }
 
 func getJWT() (string, error) {
+	var jwtResp JWTResponse
+	var err error
+
 	body := map[string]string{
-		"username": os.Getenv("USER_SIAC"),
-		"password": os.Getenv("SENHA_SIAC"),
+		"username": os.Getenv("USER_AUTH"),
+		"password": os.Getenv("PASS_AUTH"),
 	}
 
 	headers := map[string]string{
 		"Content-Type": "application/json",
 	}
 
-	client := NewHTTPClient(os.Getenv("LINK"), headers)
-
-	data, err := client.Post("/login", nil, body)
+	err = Requests("POST", os.Getenv("AUTH_LINK")+"/login", &jwtResp, nil, body, headers)
 	if err != nil {
 		return "", err
 	}
 
-	var resp Response
-
-	err = json.Unmarshal(data, &resp)
-	if err != nil {
-		return "", errors.New("Erro ao decodificar JSON: " + err.Error())
-	}
-
-	jwt, err := toJWTResponse(resp.Data)
-	if err != nil {
-		return "", err
-	}
-
-	return "Bearer " + jwt.Token, nil
+	return "Bearer " + jwtResp.Data, err
 }
 
-func requestResponse(req *http.Request) ([]byte, error) {
+// func main() {
+// 	var err error
+// 	var resp *Funcionario
 
-	client := &http.Client{}
-	response, err := client.Do(req)
-	if err != nil {
-		return nil, errors.New("erro ao fazer a requisição: " + err.Error())
-	}
-	defer response.Body.Close()
+// 	err = godotenv.Load(".env")
+// 	if err != nil {
+// 		log.Printf("Error ao carregar o arquivo .env: %s", err)
+// 	}
 
-	data, err := io.ReadAll(response.Body)
-	if err != nil {
-		return nil, errors.New("erro ao ler Json: " + err.Error())
-	}
+// 	resp, err = GetPermissoes(327)
+// 	if err != nil {
+// 		log.Panic(err)
+// 	}
+// 	log.Print(*resp.Permissoes)
+// 	//TODO: testar um post com application/x url encodded e nil
 
-	if response.StatusCode != 200 {
-		return nil, errors.New("erro ao acessar a API: " + string(data))
-	}
-
-	return data, nil
-}
-
-func toFuncionario(data any) (*Funcionario, error) {
-
-	dataJson, err := json.Marshal(data)
-	if err != nil {
-		return nil, errors.New("erro ao codificar json: " + err.Error())
-	}
-
-	var funcionario Funcionario
-
-	err = json.Unmarshal(dataJson, &funcionario)
-	if err != nil {
-		return nil, errors.New("erro ao fazer a conversao para funcionario: " + err.Error())
-	}
-
-	return &funcionario, nil
-}
-
-func toJWTResponse(data any) (*JWTResponse, error) {
-
-	dataJson, err := json.Marshal(data)
-	if err != nil {
-		return nil, errors.New("erro ao codificar json: " + err.Error())
-	}
-
-	var resp JWTResponse
-
-	err = json.Unmarshal(dataJson, &resp)
-	if err != nil {
-		return nil, errors.New("erro ao fazer a conversao: " + err.Error())
-	}
-
-	return &resp, nil
-}
-
-func main() {
-
-	fmt.Println(GetPermissoes(327))
-	//TODO: testar um post com application/x url encodded e nil
-
-}
+// }

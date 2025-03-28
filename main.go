@@ -8,13 +8,17 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
+
+
 
 type Response struct {
 	Status  bool   `json:"status"`
@@ -44,6 +48,12 @@ type Funcionario struct {
 	Permissoes *[]Modulo `json:"permissoes"`
 }
 
+type Client struct{
+	Url 		string 
+	HttpClient 	*http.Client
+	Headers 	map[string]string
+}
+
 func init() {
 	err := godotenv.Load()
 	if err != nil {
@@ -51,48 +61,114 @@ func init() {
 	}
 }
 
-func GetPermissoes(coduser int) (*Funcionario, error) {
-
-	req, err := http.NewRequest("GET", os.Getenv("LINK")+"/auth/"+strconv.Itoa(coduser), nil)
-	if err != nil {
-		return nil, errors.New("erro ao criar requisição: " + err.Error())
+func NewHTTPClient(url string, headers map[string]string) *Client{
+	return &Client{
+		Url: url,
+		HttpClient: &http.Client{},
+		Headers: headers,
 	}
+}
+
+func (c *Client) Get(endpoint string, queryParams map[string]string) ([]byte, error){
+	
+
+	var fullURL string = c.Url + endpoint
+
+	fullURL += buildQuery(queryParams)
+
+	req, err := http.NewRequest("GET", fullURL , nil)
+	if err != nil {
+		return nil, errors.New("erro ao criar a requisicao: " + err.Error())
+	}
+
+	for key, value := range c.Headers {
+		req.Header.Set(key, value)
+	}
+
+	return requestResponse(req)
+}
+
+func (c *Client) Post(endpoint string, queryParams map[string]string, body map[string]string) ([]byte, error){
+	
+	var fullURL string = c.Url + endpoint
+
+	fullURL += buildQuery(queryParams)
+
+	reader, err := verifyFormat(c.Headers["Content-Type"], body)
+	if err != nil{
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", fullURL , reader)
+	if err != nil {
+		return nil, errors.New("erro ao criar a requisicao: " + err.Error())
+	}
+
+	for key, value := range c.Headers {
+		req.Header.Set(key, value)
+	}
+
+	return requestResponse(req)
+}
+
+func GetPermissoes(coduser int) (*Funcionario, error) {
 
 	jwt, err := getJWT()
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", jwt)
+	headers := map[string]string{
+		"Authorization": jwt,
+	}
 
-	data, err := requestResponse(req)
+	client := NewHTTPClient(os.Getenv("LINK"), headers)
+
+	data, err := client.Get("/auth/" + strconv.Itoa(coduser), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return toFuncionario(data)
+	var resp Response
+
+	err = json.Unmarshal(data, &resp)
+	if err != nil {
+		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
+	}
+
+	return toFuncionario(resp.Data)
 }
 
 func GetPermissao(coduser int, codmodulo int) (*Funcionario, error) {
 
-	req, err := http.NewRequest("GET", os.Getenv("LINK")+"/auth/"+strconv.Itoa(coduser)+"?modulo="+strconv.Itoa(codmodulo), nil)
-	if err != nil {
-		return nil, errors.New("erro ao criar requisição: " + err.Error())
-	}
-
 	jwt, err := getJWT()
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", jwt)
-
-	data, err := requestResponse(req)
-	if err != nil {
-		return nil, err
+	headers := map[string]string{
+		"Authorization": jwt,
 	}
 
-	return toFuncionario(data)
+	params := map[string]string{
+		"modulo": strconv.Itoa(codmodulo),
+	}
+
+	client := NewHTTPClient(os.Getenv("LINK"), headers)
+
+	data, err := client.Get("/auth/" + strconv.Itoa(coduser), params)
+	if err != nil {
+		return nil, err
+	} 
+
+	var resp Response
+
+	err = json.Unmarshal(data, &resp)
+	if err != nil {
+		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
+	}
+
+	return toFuncionario(resp.Data)
 
 }
 
@@ -122,38 +198,7 @@ func Conector(servidor int, banco string) (*sqlx.DB, error) {
 	return db, nil
 }
 
-func getJWT() (string, error) {
-	body := map[string]string{
-		"username": os.Getenv("USER_SIAC"),
-		"password": os.Getenv("SENHA_SIAC"),
-	}
-
-	jsonData, err := json.Marshal(body)
-	if err != nil {
-		return "", errors.New("Erro ao codificar corpo da requisicao: " + err.Error())
-	}
-
-	req, err := http.NewRequest("POST", os.Getenv("LINK")+"/login", bytes.NewBufferString(string(jsonData)))
-	if err != nil {
-		return "", errors.New("erro ao criar requisição: " + err.Error())
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	data, err := requestResponse(req)
-	if err != nil {
-		return "", err
-	}
-
-	resp, err := toJWTResponse(data)
-	if err != nil {
-		return "", err
-	}
-
-	return "Bearer " + resp.Token, nil
-}
-
-func filter[T any](data []T, test func(T) bool) (ret []T) {
+func Filter[T any](data []T, test func(T) bool) (ret []T) {
 	for _, s := range data {
 		if test(s) {
 			ret = append(ret, s)
@@ -162,7 +207,80 @@ func filter[T any](data []T, test func(T) bool) (ret []T) {
 	return
 }
 
-func requestResponse(req *http.Request) (any, error) {
+//funcoes privadas
+
+func verifyFormat(contentType string, body map[string]string) (io.Reader, error){
+
+	if body == nil{
+		return nil, nil
+	}
+
+	switch contentType{
+		case "application/json":
+			jsonData, err := json.Marshal(body)
+			if err != nil {
+				return nil, errors.New("erro ao decodificar jsoon: " + err.Error())
+			}
+			return bytes.NewBufferString(string(jsonData)), nil
+		
+		case "application/x-www-form-urlencoded":
+			formData := url.Values{}
+			for key, value := range body {
+				formData.Set(key, value)
+			}
+			return strings.NewReader(formData.Encode()), nil
+
+		default:
+			return nil, errors.New("erro: content type nao suportado")
+	}
+}
+
+func buildQuery(queryParams map[string]string) string {
+	if queryParams == nil {
+		return ""
+	}
+
+	var params []string
+	for key, value := range queryParams {
+		params = append(params, key+"="+value)
+	}
+
+	return "?" + strings.Join(params, "&")
+}
+
+func getJWT() (string, error) {
+	body := map[string]string{
+		"username": os.Getenv("USER_SIAC"),
+		"password": os.Getenv("SENHA_SIAC"),
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	client := NewHTTPClient(os.Getenv("LINK"), headers)
+
+	data, err := client.Post("/login", nil, body)
+	if err != nil {
+		return "", err
+	}
+
+	var resp Response
+
+	err = json.Unmarshal(data, &resp)
+	if err != nil {
+		return "", errors.New("Erro ao decodificar JSON: " + err.Error())
+	}
+
+	jwt, err := toJWTResponse(resp.Data)
+	if err != nil {
+		return "", err
+	}
+
+	return "Bearer " + jwt.Token, nil
+}
+
+func requestResponse(req *http.Request) ([]byte, error) {
 
 	client := &http.Client{}
 	response, err := client.Do(req)
@@ -180,14 +298,7 @@ func requestResponse(req *http.Request) (any, error) {
 		return nil, errors.New("erro ao acessar a API: " + string(data))
 	}
 
-	var resp Response
-
-	err = json.Unmarshal(data, &resp)
-	if err != nil {
-		return nil, errors.New("Erro ao decodificar JSON: " + err.Error())
-	}
-
-	return resp.Data, nil
+	return data, nil
 }
 
 func toFuncionario(data any) (*Funcionario, error) {
@@ -226,13 +337,7 @@ func toJWTResponse(data any) (*JWTResponse, error) {
 
 func main() {
 
-	var conn, err = Conector(15, "FUTURA")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	conn.Close()
-
-	fmt.Println(GetPermissao(327, 46))
+	fmt.Println(GetPermissoes(327))
+	//TODO: testar um post com application/x url encodded e nil
 
 }

@@ -12,37 +12,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/MedFutura/medfutura_lib/models"
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/jmoiron/sqlx"
 )
-
-type Response struct {
-	Status  bool        `json:"status"`
-	Message string      `json:"message"`
-	Data    Funcionario `json:"data"`
-}
-
-type JWTResponse struct {
-	Status  bool   `json:"status"`
-	Message string `json:"message"`
-	Data    string `json:"data"`
-}
-
-type Modulo struct {
-	CodModulo int    `json:"codModulo"`
-	Descricao string `json:"descricao"`
-	Consultar bool   `json:"consultar"`
-	Gravar    bool   `json:"gravar"`
-	Excluir   bool   `json:"excluir"`
-}
-
-type Funcionario struct {
-	Id         int       `json:"id"`
-	Cargo      string    `json:"cargo"`
-	Nome       string    `json:"nome"`
-	Email      string    `json:"email"`
-	Permissoes *[]Modulo `json:"permissoes"`
-}
 
 // Requests é uma função que faz uma requisição HTTP para a url especificada
 // com o método especificado (GET, POST, PUT, DELETE) e retorna o corpo da resposta
@@ -127,7 +100,7 @@ func Requests(method string, url string, resp interface{}, args ...interface{}) 
 	return nil
 }
 
-func GetPermissao(coduser int, codmodulo int) (*Funcionario, error) {
+func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 	var err error
 	var jwt string
 
@@ -144,7 +117,7 @@ func GetPermissao(coduser int, codmodulo int) (*Funcionario, error) {
 		"modulo": strconv.Itoa(codmodulo),
 	}
 
-	var resp Response
+	var resp models.Response
 	err = Requests("GET", os.Getenv("AUTH_LINK")+"/auth/"+strconv.Itoa(coduser), &resp, params, nil, headers)
 	if err != nil {
 		return nil, err
@@ -154,9 +127,9 @@ func GetPermissao(coduser int, codmodulo int) (*Funcionario, error) {
 
 }
 
-func GetPermissoes(coduser int) (*Funcionario, error) {
+func GetPermissoes(coduser int) (*models.Funcionario, error) {
 	var err error
-	var resp Response
+	var resp models.Response
 
 	jwt, err := getJWT()
 	if err != nil {
@@ -226,7 +199,7 @@ func buildQuery(queryParams map[string]string) string {
 }
 
 func getJWT() (string, error) {
-	var jwtResp JWTResponse
+	var jwtResp models.JWTResponse
 	var err error
 
 	body := map[string]string{

@@ -100,6 +100,8 @@ func Requests(method string, url string, resp interface{}, args ...interface{}) 
 	return nil
 }
 
+// Função que faz uma requição pra api de permissao e retorna as permissoes
+// daquele usuario no modulo especificado
 func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 	var err error
 	var jwt string
@@ -127,6 +129,8 @@ func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 
 }
 
+// Função que faz uma requisição pra api de permissao e retorna todas
+// as permissoes de um usuario
 func GetPermissoes(coduser int) (*models.Funcionario, error) {
 	var err error
 	var resp models.Response
@@ -148,6 +152,8 @@ func GetPermissoes(coduser int) (*models.Funcionario, error) {
 	return &resp.Data, err
 }
 
+// Função que cria conector dos bancos de dados padrao da empresa
+// (apenas sql server por enquanto)
 func Conector(servidor int, banco string) (*sqlx.DB, error) {
 
 	var serverKey string = fmt.Sprintf("ADDR_SERVER_%d", servidor)
@@ -174,6 +180,7 @@ func Conector(servidor int, banco string) (*sqlx.DB, error) {
 	return db, nil
 }
 
+// Função de filtro de array
 func Filter[T any](data []T, test func(T) bool) (ret []T) {
 	for _, s := range data {
 		if test(s) {

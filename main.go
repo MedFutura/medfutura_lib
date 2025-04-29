@@ -40,10 +40,8 @@ func Requests(method string, url string, resp interface{}, args ...interface{}) 
 	// }
 
 	if len(args) > 0 {
-		if len(args) > 0 {
-			if args[0] != nil {
-				params = args[0].(map[string]string)
-			}
+		if args[0] != nil {
+			params = args[0].(map[string]string)
 		}
 		if len(args) > 1 {
 			data = args[1]
@@ -54,7 +52,7 @@ func Requests(method string, url string, resp interface{}, args ...interface{}) 
 			}
 		}
 	}
-
+	//TODO: URL ENCODDED
 	if data != nil {
 		payloadBuffer, err := json.Marshal(data)
 		if err != nil {

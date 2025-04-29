@@ -40,10 +40,8 @@ func Requests(method string, url string, resp interface{}, args ...interface{}) 
 	// }
 
 	if len(args) > 0 {
-		if len(args) > 0 {
-			if args[0] != nil {
-				params = args[0].(map[string]string)
-			}
+		if args[0] != nil {
+			params = args[0].(map[string]string)
 		}
 		if len(args) > 1 {
 			data = args[1]
@@ -54,7 +52,7 @@ func Requests(method string, url string, resp interface{}, args ...interface{}) 
 			}
 		}
 	}
-
+	//TODO: URL ENCODDED
 	if data != nil {
 		payloadBuffer, err := json.Marshal(data)
 		if err != nil {
@@ -188,6 +186,27 @@ func Filter[T any](data []T, test func(T) bool) (ret []T) {
 		}
 	}
 	return
+}
+
+//Funcao de paginacao. Retorna a data formatada e a quantidade de paginas
+func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
+	if nItens == 0 {
+		nItens = 30
+	}
+
+	qtdPaginas := 0
+
+	qtdPaginas = len(*data) / nItens
+	if len(*data)%nItens != 0 {
+		qtdPaginas++
+	}
+	
+	if page != 0 {
+		index := page * nItens
+		*data = (*data)[index : index + nItens]
+	}
+
+	return qtdPaginas
 }
 
 //funcoes privadas

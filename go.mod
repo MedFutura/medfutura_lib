@@ -2,10 +2,7 @@ module github.com/MedFutura/medfutura_lib
 
 go 1.22.1
 
-require (
-	github.com/denisenkom/go-mssqldb v0.12.3
-	github.com/joho/godotenv v1.5.1
-)
+require github.com/denisenkom/go-mssqldb v0.12.3
 
 require (
 	github.com/golang-sql/civil v0.0.0-20190719163853-cb61b32ac6fe // indirect

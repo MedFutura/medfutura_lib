@@ -118,12 +118,15 @@ func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 	}
 
 	var resp models.Response
+	var data models.Funcionario
 	err = Requests("GET", os.Getenv("AUTH_LINK")+"/auth/"+strconv.Itoa(coduser), &resp, params, nil, headers)
 	if err != nil {
 		return nil, err
 	}
 
-	return &resp.Data, err
+	data = resp.Data.(models.Funcionario)
+
+	return &data, err
 
 }
 
@@ -132,7 +135,7 @@ func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 func GetPermissoes(coduser int) (*models.Funcionario, error) {
 	var err error
 	var resp models.Response
-
+	var data models.Funcionario
 	jwt, err := getJWT()
 	if err != nil {
 		return nil, err
@@ -146,8 +149,9 @@ func GetPermissoes(coduser int) (*models.Funcionario, error) {
 	if err != nil {
 		return nil, err
 	}
+	data = resp.Data.(models.Funcionario)
 
-	return &resp.Data, err
+	return &data, err
 }
 
 // Função que cria conector dos bancos de dados padrao da empresa
@@ -209,6 +213,29 @@ func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
 	return qtdPaginas
 }
 
+// Criar notificacao
+func CriarNotificacao(notificacao models.NotificacaoPost) (error) {
+	var err error
+	var resp models.Response
+
+	jwt, err := getJWT()
+	if err != nil {
+		return err
+	}
+
+	headers := map[string]string{
+		"Authorization": jwt,
+	}
+
+	err = Requests("POST", os.Getenv("NOTIFICACAO_LINK"), &resp, nil, notificacao, headers)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
 //funcoes privadas
 
 func buildQuery(queryParams map[string]string) string {
@@ -225,7 +252,8 @@ func buildQuery(queryParams map[string]string) string {
 }
 
 func getJWT() (string, error) {
-	var jwtResp models.JWTResponse
+	var jwtResp models.Response
+	var data string 
 	var err error
 
 	body := map[string]string{
@@ -242,8 +270,11 @@ func getJWT() (string, error) {
 		return "", err
 	}
 
-	return "Bearer " + jwtResp.Data, err
+	data = jwtResp.Data.(string)
+
+	return "Bearer " + data, err
 }
+
 
 // func main() {
 // 	var err error

@@ -3,13 +3,7 @@ package models
 type Response struct {
 	Status  bool        `json:"status"`
 	Message string      `json:"message"`
-	Data    Funcionario `json:"data"`
-}
-
-type JWTResponse struct {
-	Status  bool   `json:"status"`
-	Message string `json:"message"`
-	Data    string `json:"data"`
+	Data    interface{} `json:"data"`
 }
 
 type Modulo struct {
@@ -26,4 +20,12 @@ type Funcionario struct {
 	Nome       string    `json:"nome"`
 	Email      string    `json:"email"`
 	Permissoes *[]Modulo `json:"permissoes"`
+}
+
+type NotificacaoPost struct {
+	Mensagem         string  `db:"mensagem" json:"mensagem"`
+	Path             *string `json:"path" db:"path"`
+	Tipo             int     `db:"tipo" json:"tipo"`
+	UserGerador      *int    `db:"userGerador" json:"userGerador"`
+	UserDestinatario []int   `db:"userDestinatario" json:"userDestinatario"`
 }

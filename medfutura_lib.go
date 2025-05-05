@@ -192,7 +192,9 @@ func Filter[T any](data []T, test func(T) bool) (ret []T) {
 	return
 }
 
-//Funcao de paginacao. Retorna a data formatada e a quantidade de paginas
+//Funcao de paginação. 
+// Recebe um slice T, o numero da pagina e o numero de itens por pagina.
+// Retorna o numero de paginas e o slice formatado
 func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
 	if nItens == 0 {
 		nItens = 30
@@ -201,7 +203,7 @@ func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
 	qtdPaginas := 0
 
 	qtdPaginas = len(*data) / nItens
-	if len(*data)%nItens != 0 {
+	if len(*data) % nItens != 0 {
 		qtdPaginas++
 	}
 	

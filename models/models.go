@@ -23,9 +23,10 @@ type Funcionario struct {
 }
 
 type NotificacaoPost struct {
-	Mensagem         string  `db:"mensagem" json:"mensagem"`
-	Path             *string `json:"path" db:"path"`
-	Tipo             int     `db:"tipo" json:"tipo"`
-	UserGerador      *int    `db:"userGerador" json:"userGerador"`
-	UserDestinatario []int   `db:"userDestinatario" json:"userDestinatario"`
+	Mensagem          string  `db:"mensagem" json:"mensagem"`
+	Path              *string `json:"path" db:"path"`
+	Tipo              int     `db:"tipo" json:"tipo"`
+	UserGerador       *int    `db:"userGerador" json:"userGerador"`
+	UserDestinatario  []int   `db:"userDestinatario" json:"userDestinatario"`
+	GrupoDestinatario *int    `db:"grupoDestinatario" json:"grupoDestinatario"`
 }

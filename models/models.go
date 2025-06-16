@@ -27,6 +27,17 @@ type NotificacaoPost struct {
 	Path              *string `json:"path" db:"path"`
 	Tipo              int     `db:"tipo" json:"tipo"`
 	UserGerador       *int    `db:"userGerador" json:"userGerador"`
+	Processo          *string `db:"processo" json:"processo"`
 	UserDestinatario  []int   `db:"userDestinatario" json:"userDestinatario"`
 	GrupoDestinatario *int    `db:"grupoDestinatario" json:"grupoDestinatario"`
+	MensagemAudit     *string `db:"mensgemAudit" json:"mensgemAudit"`
+}
+
+type AuditoriaPost struct {
+	Processo   string  `json:"processo" db:"processo"`
+	Descricao  string  `json:"descricao" db:"descricao"`
+	Usuario    *string `json:"usuario" db:"usuario"`
+	CodUsuario *int    `json:"codUsuario" db:"codUsuario"`
+	Data       *string `json:"data" db:"data"`
+	Tipo       int     `json:"tipo" db:"tipo"`
 }

@@ -237,6 +237,27 @@ func CriarNotificacao(notificacao models.NotificacaoPost) (error) {
 	return nil
 }
 
+// Criar auditoria
+func CriarAuditoria(notificacao models.AuditoriaPost) (error) {
+	var err error
+	var resp models.Response
+
+	jwt, err := getJWT()
+	if err != nil {
+		return err
+	}
+
+	headers := map[string]string{
+		"Authorization": jwt,
+	}
+
+	err = Requests("POST", os.Getenv("NOTIFICACAO_LINK")+"/auditoria", &resp, nil, notificacao, headers)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 //funcoes privadas
 

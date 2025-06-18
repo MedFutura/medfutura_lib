@@ -6,6 +6,12 @@ type Response struct {
 	Data    interface{} `json:"data"`
 }
 
+type ResponseAuth struct {
+	Status  bool        `json:"status"`
+	Message string      `json:"message"`
+	Data    Funcionario `json:"data"`
+}
+
 type Modulo struct {
 	CodModulo int    `json:"codModulo"`
 	Descricao string `json:"descricao"`

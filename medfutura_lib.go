@@ -117,16 +117,13 @@ func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 		"modulo": strconv.Itoa(codmodulo),
 	}
 
-	var resp models.Response
-	var data models.Funcionario
+	var resp models.ResponseAuth
 	err = Requests("GET", os.Getenv("AUTH_LINK")+"/auth/"+strconv.Itoa(coduser), &resp, params, nil, headers)
 	if err != nil {
 		return nil, err
 	}
 
-	data = resp.Data.(models.Funcionario)
-
-	return &data, err
+	return &resp.Data, err
 
 }
 
@@ -134,8 +131,7 @@ func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 // as permissoes de um usuario
 func GetPermissoes(coduser int) (*models.Funcionario, error) {
 	var err error
-	var resp models.Response
-	var data models.Funcionario
+	var resp models.ResponseAuth
 	jwt, err := getJWT()
 	if err != nil {
 		return nil, err
@@ -149,9 +145,8 @@ func GetPermissoes(coduser int) (*models.Funcionario, error) {
 	if err != nil {
 		return nil, err
 	}
-	data = resp.Data.(models.Funcionario)
 
-	return &data, err
+	return &resp.Data, err
 }
 
 // Função que cria conector dos bancos de dados padrao da empresa
@@ -192,7 +187,7 @@ func Filter[T any](data []T, test func(T) bool) (ret []T) {
 	return
 }
 
-//Funcao de paginação. 
+// Funcao de paginação.
 // Recebe um slice T, o numero da pagina e o numero de itens por pagina.
 // Retorna o numero de paginas e o slice formatado
 func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
@@ -203,20 +198,20 @@ func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
 	qtdPaginas := 0
 
 	qtdPaginas = len(*data) / nItens
-	if len(*data) % nItens != 0 {
+	if len(*data)%nItens != 0 {
 		qtdPaginas++
 	}
-	
+
 	if page != 0 {
 		index := page * nItens
-		*data = (*data)[index : index + nItens]
+		*data = (*data)[index : index+nItens]
 	}
 
 	return qtdPaginas
 }
 
 // Criar notificacao
-func CriarNotificacao(notificacao models.NotificacaoPost) (error) {
+func CriarNotificacao(notificacao models.NotificacaoPost) error {
 	var err error
 	var resp models.Response
 
@@ -238,7 +233,7 @@ func CriarNotificacao(notificacao models.NotificacaoPost) (error) {
 }
 
 // Criar auditoria
-func CriarAuditoria(notificacao models.AuditoriaPost) (error) {
+func CriarAuditoria(notificacao models.AuditoriaPost) error {
 	var err error
 	var resp models.Response
 
@@ -276,7 +271,7 @@ func buildQuery(queryParams map[string]string) string {
 
 func getJWT() (string, error) {
 	var jwtResp models.Response
-	var data string 
+	var data string
 	var err error
 
 	body := map[string]string{
@@ -297,7 +292,6 @@ func getJWT() (string, error) {
 
 	return "Bearer " + data, err
 }
-
 
 // func main() {
 // 	var err error

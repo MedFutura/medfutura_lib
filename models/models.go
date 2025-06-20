@@ -36,7 +36,7 @@ type NotificacaoPost struct {
 	Processo          *string `db:"processo" json:"processo"`
 	UserDestinatario  []int   `db:"userDestinatario" json:"userDestinatario"`
 	GrupoDestinatario *int    `db:"grupoDestinatario" json:"grupoDestinatario"`
-	MensagemAudit     *string `db:"mensgemAudit" json:"mensgemAudit"`
+	MensagemAudit     *string `db:"mensagemAudit" json:"mensagemAudit"`
 }
 
 type AuditoriaPost struct {

@@ -104,7 +104,7 @@ func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 	var err error
 	var jwt string
 
-	jwt, err = getJWT()
+	jwt, err = GetJWT()
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func GetPermissao(coduser int, codmodulo int) (*models.Funcionario, error) {
 func GetPermissoes(coduser int) (*models.Funcionario, error) {
 	var err error
 	var resp models.ResponseAuth
-	jwt, err := getJWT()
+	jwt, err := GetJWT()
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func CriarNotificacao(notificacao models.NotificacaoPost) error {
 	var err error
 	var resp models.Response
 
-	jwt, err := getJWT()
+	jwt, err := GetJWT()
 	if err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func CriarAuditoria(notificacao models.AuditoriaPost) error {
 	var err error
 	var resp models.Response
 
-	jwt, err := getJWT()
+	jwt, err := GetJWT()
 	if err != nil {
 		return err
 	}
@@ -254,22 +254,8 @@ func CriarAuditoria(notificacao models.AuditoriaPost) error {
 	return nil
 }
 
-//funcoes privadas
-
-func buildQuery(queryParams map[string]string) string {
-	if queryParams == nil {
-		return ""
-	}
-
-	var params []string
-	for key, value := range queryParams {
-		params = append(params, key+"="+value)
-	}
-
-	return "?" + strings.Join(params, "&")
-}
-
-func getJWT() (string, error) {
+// Pega o token de autorização
+func GetJWT() (string, error) {
 	var jwtResp models.Response
 	var data string
 	var err error
@@ -292,6 +278,23 @@ func getJWT() (string, error) {
 
 	return "Bearer " + data, err
 }
+
+//funcoes privadas
+
+func buildQuery(queryParams map[string]string) string {
+	if queryParams == nil {
+		return ""
+	}
+
+	var params []string
+	for key, value := range queryParams {
+		params = append(params, key+"="+value)
+	}
+
+	return "?" + strings.Join(params, "&")
+}
+
+
 
 // func main() {
 // 	var err error

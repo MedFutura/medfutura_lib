@@ -208,7 +208,9 @@ func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
 
 	if page != 0 {
 		index := (page - 1) * nItens
-		*data = (*data)[index : index+nItens]
+		if len(*data) >= index+nItens {
+			*data = (*data)[index : index+nItens]
+		}
 	}
 
 	return qtdPaginas
@@ -297,8 +299,6 @@ func buildQuery(queryParams map[string]string) string {
 
 	return "?" + strings.Join(params, "&")
 }
-
-
 
 // func main() {
 // 	var err error

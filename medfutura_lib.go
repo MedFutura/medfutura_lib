@@ -208,9 +208,10 @@ func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
 
 	if page != 0 {
 		index := (page - 1) * nItens
-		if len(*data) >= index+nItens {
-			*data = (*data)[index : index+nItens]
+		if len(*data) < index+nItens {
+			nItens = len(*data) - index
 		}
+		*data = (*data)[index : index+nItens]
 	}
 
 	return qtdPaginas

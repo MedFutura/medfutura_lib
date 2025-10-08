@@ -287,14 +287,29 @@ func GetJWT() (string, error) {
 	return "Bearer " + data, err
 }
 
+// Função auxiliar para encontrar um campo ignorando o case
+func caseInsensitiveFieldByName(v reflect.Value, name string) reflect.Value {
+	// 1. Converte o nome procurado para minúsculas.
+	lowerName := strings.ToLower(name)
+
+	// 2. Utiliza FieldByNameFunc, que itera sobre todos os campos.
+	field := v.FieldByNameFunc(func(fieldName string) bool {
+		// 3. Compara o nome do campo atual (fieldName)
+		// com o nome procurado (lowerName), ambos em minúsculas.
+		return strings.ToLower(fieldName) == lowerName
+	})
+
+	return field
+}
+
 // Ordena um slice de interface baseado em uma chave
 func OrderBy[T any](data []T, key string, asc bool) []T {
 	sort.Slice(data, func(i, j int) bool {
 		valI := reflect.ValueOf(data[i])
 		valJ := reflect.ValueOf(data[j])
 
-		fieldI := valI.FieldByName(key)
-		fieldJ := valJ.FieldByName(key)
+		fieldI := caseInsensitiveFieldByName(valI, key)
+		fieldJ := caseInsensitiveFieldByName(valJ, key)
 
 		// 1. DESREFERENCIAR O PONTEIRO (se for um)
 		// Se o Kind for um ponteiro, ele deve chamar Elem()

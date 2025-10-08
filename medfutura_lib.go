@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -285,6 +287,47 @@ func GetJWT() (string, error) {
 	return "Bearer " + data, err
 }
 
+// Ordena um slice de interface baseado em uma chave
+func OrderBy[T any](data []T, key string, asc bool) []T {
+	sort.Slice(data, func(i, j int) bool {
+		valI := reflect.ValueOf(data[i])
+		valJ := reflect.ValueOf(data[j])
+
+		fieldI := valI.FieldByName(key)
+		fieldJ := valJ.FieldByName(key)
+
+		if !fieldI.IsValid() || !fieldJ.IsValid() {
+			return false
+		}
+
+		switch fieldI.Kind() {
+		case reflect.String:
+			if asc {
+				return fieldI.String() < fieldJ.String()
+			}
+			return fieldI.String() > fieldJ.String()
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if asc {
+				return fieldI.Int() < fieldJ.Int()
+			}
+			return fieldI.Int() > fieldJ.Int()
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			if asc {
+				return fieldI.Uint() < fieldJ.Uint()
+			}
+			return fieldI.Uint() > fieldJ.Uint()
+		case reflect.Float32, reflect.Float64:
+			if asc {
+				return fieldI.Float() < fieldJ.Float()
+			}
+			return fieldI.Float() > fieldJ.Float()
+		default:
+			return false
+		}
+	})
+	return data
+}
+
 //funcoes privadas
 
 func buildQuery(queryParams map[string]string) string {
@@ -315,5 +358,3 @@ func buildQuery(queryParams map[string]string) string {
 // 	}
 // 	log.Print(*resp.Permissoes)
 // 	//TODO: testar um post com application/x url encodded e nil
-
-// }

@@ -210,10 +210,9 @@ func Paginar[T any](data *[]T, page int, nItens int) (qtdpaginas int) {
 
 	if page != 0 {
 		index := (page - 1) * nItens
-		if len(*data) < index+nItens {
-			nItens = len(*data) - index
+		if len(*data) >= index+nItens {
+			*data = (*data)[index : index+nItens]
 		}
-		*data = (*data)[index : index+nItens]
 	}
 
 	return qtdPaginas
@@ -297,26 +296,38 @@ func OrderBy[T any](data []T, key string, asc bool) []T {
 		fieldI := valI.FieldByName(key)
 		fieldJ := valJ.FieldByName(key)
 
+		// 1. DESREFERENCIAR O PONTEIRO (se for um)
+		// Se o Kind for um ponteiro, ele deve chamar Elem()
+		// O Elem() retorna o valor para o qual o ponteiro aponta.
+		if fieldI.Kind() == reflect.Ptr {
+			fieldI = fieldI.Elem()
+		}
+		if fieldJ.Kind() == reflect.Ptr {
+			fieldJ = fieldJ.Elem()
+		}
+
+		// Se o campo for um ponteiro NULO, Elem() retornará um valor inválido.
+		// Se o campo não for um ponteiro, Elem() panicaria, por isso a verificação acima.
+
 		if !fieldI.IsValid() || !fieldJ.IsValid() {
+			// Se um ponteiro for nulo, ele será considerado 'inválido' aqui.
+			// Você pode querer uma lógica mais específica para nil, mas 'false' (não-ordenado) é seguro.
 			return false
 		}
 
+		// ... o restante do código de switch/case é o mesmo
 		switch fieldI.Kind() {
 		case reflect.String:
 			if asc {
 				return fieldI.String() < fieldJ.String()
 			}
 			return fieldI.String() > fieldJ.String()
+		// ... (outros cases para Int, Uint, Float)
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			if asc {
 				return fieldI.Int() < fieldJ.Int()
 			}
 			return fieldI.Int() > fieldJ.Int()
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			if asc {
-				return fieldI.Uint() < fieldJ.Uint()
-			}
-			return fieldI.Uint() > fieldJ.Uint()
 		case reflect.Float32, reflect.Float64:
 			if asc {
 				return fieldI.Float() < fieldJ.Float()

@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/MedFutura/medfutura_lib/models"
 	_ "github.com/denisenkom/go-mssqldb"
@@ -176,6 +177,10 @@ func Conector(servidor int, banco string) (*sqlx.DB, error) {
 		return db, err
 	}
 
+	db.SetMaxOpenConns(1)
+	db.SetConnMaxIdleTime(1)
+	db.SetConnMaxLifetime(1 *time.Minute)
+	
 	return db, nil
 }
 

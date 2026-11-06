@@ -2,6 +2,7 @@ package medfutura_lib
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MedFutura/medfutura_lib/models"
@@ -270,10 +272,57 @@ func CriarAuditoria(notificacao models.AuditoriaPost) error {
 	return nil
 }
 
-// Pega o token de autorização
+var jwtCache struct {
+	sync.Mutex
+	token  string
+	expira time.Time
+}
+
+// Pega o token de autorização. Cada login na api de autorização é um login no Auth0, então o token
+// fica em memória até 5 min antes de expirar. O lock segura as requisições concorrentes enquanto
+// uma renova, para não dispararem vários logins de uma vez.
 func GetJWT() (string, error) {
+	jwtCache.Lock()
+	defer jwtCache.Unlock()
+
+	if jwtCache.token != "" && time.Now().Before(jwtCache.expira) {
+		return jwtCache.token, nil
+	}
+
+	token, err := loginJWT()
+	if err != nil {
+		return "", err
+	}
+
+	jwtCache.token = "Bearer " + token
+	jwtCache.expira = expiracaoJWT(token).Add(-5 * time.Minute)
+	return jwtCache.token, nil
+}
+
+// Lê o exp do payload do JWT, sem validar a assinatura (o token veio da nossa api de autorização).
+// Se não conseguir ler, usa 15 min.
+func expiracaoJWT(token string) time.Time {
+	// com o desconto de 5 min do GetJWT, vira 10 min de cache
+	padrao := time.Now().Add(15 * time.Minute)
+	partes := strings.Split(token, ".")
+	if len(partes) != 3 {
+		return padrao
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(partes[1])
+	if err != nil {
+		return padrao
+	}
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if json.Unmarshal(payload, &claims) != nil || claims.Exp == 0 {
+		return padrao
+	}
+	return time.Unix(claims.Exp, 0)
+}
+
+func loginJWT() (string, error) {
 	var jwtResp models.Response
-	var data string
 	var err error
 
 	body := map[string]string{
@@ -290,9 +339,12 @@ func GetJWT() (string, error) {
 		return "", err
 	}
 
-	data = jwtResp.Data.(string)
+	token, ok := jwtResp.Data.(string)
+	if !ok || token == "" {
+		return "", errors.New("api de autorização não retornou o token")
+	}
 
-	return "Bearer " + data, err
+	return token, nil
 }
 
 // Função auxiliar para encontrar um campo ignorando o case

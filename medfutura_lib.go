@@ -156,24 +156,19 @@ func GetPermissoes(coduser int) (*models.Funcionario, error) {
 
 // Função que cria conector dos bancos de dados padrao da empresa
 // (apenas sql server por enquanto)
+func connString(servidor int, banco string) string {
+	return fmt.Sprintf("server=%s;user id=%s;password=%s;port=%s;database=%s",
+		os.Getenv(fmt.Sprintf("ADDR_SERVER_%d", servidor)),
+		os.Getenv(fmt.Sprintf("SERVER_USER_%d", servidor)),
+		os.Getenv(fmt.Sprintf("SERVER_PSSW_%d", servidor)),
+		os.Getenv(fmt.Sprintf("PORT_SERVER_%d", servidor)),
+		os.Getenv(fmt.Sprintf("DB_%s_%d", banco, servidor)))
+}
+
+// Conector abre uma conexão nova a cada chamada (quem chama fecha com Close).
+// Uma conexão só: uma query fora de uma transação aberta nela espera para sempre. Prefira Pool.
 func Conector(servidor int, banco string) (*sqlx.DB, error) {
-
-	var serverKey string = fmt.Sprintf("ADDR_SERVER_%d", servidor)
-	var portKey string = fmt.Sprintf("PORT_SERVER_%d", servidor)
-	var userKey string = fmt.Sprintf("SERVER_USER_%d", servidor)
-	var passwrdKey string = fmt.Sprintf("SERVER_PSSW_%d", servidor)
-	var dbKey string = fmt.Sprintf("DB_%s_%d", banco, servidor)
-
-	var err error
-	var server string = os.Getenv(serverKey)
-	var port string = os.Getenv(portKey)
-	var user string = os.Getenv(userKey)
-	var password string = os.Getenv(passwrdKey)
-	var database string = os.Getenv(dbKey)
-	var db *sqlx.DB
-
-	connString := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%s;database=%s", server, user, password, port, database)
-	db, err = sqlx.Open("mssql", connString)
+	db, err := sqlx.Open("mssql", connString(servidor, banco))
 	if err != nil {
 		log.Printf("Erro na conexao com db: %s", err)
 		return db, err
@@ -181,8 +176,36 @@ func Conector(servidor int, banco string) (*sqlx.DB, error) {
 
 	db.SetMaxOpenConns(1)
 	db.SetConnMaxIdleTime(1)
-	db.SetConnMaxLifetime(1 *time.Minute)
-	
+	db.SetConnMaxLifetime(1 * time.Minute)
+
+	return db, nil
+}
+
+var (
+	pools   = map[string]*sqlx.DB{}
+	poolsMu sync.Mutex
+)
+
+// Pool devolve o pool de conexões compartilhado do banco, criado na primeira chamada.
+// Não feche: ele vive enquanto o processo viver. Toda transação precisa de Commit ou Rollback,
+// senão a conexão dela não volta para o pool.
+func Pool(servidor int, banco string) (*sqlx.DB, error) {
+	chave := fmt.Sprintf("%d/%s", servidor, banco)
+	poolsMu.Lock()
+	defer poolsMu.Unlock()
+	if db, ok := pools[chave]; ok {
+		return db, nil
+	}
+	db, err := sqlx.Open("mssql", connString(servidor, banco))
+	if err != nil {
+		log.Printf("Erro na conexao com db: %s", err)
+		return nil, err
+	}
+	db.SetMaxOpenConns(20)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxIdleTime(5 * time.Minute)
+	db.SetConnMaxLifetime(30 * time.Minute)
+	pools[chave] = db
 	return db, nil
 }
 
